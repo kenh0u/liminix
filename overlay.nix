@@ -275,7 +275,7 @@ extraPkgs
     doCheck = false;
   });
 
-  lua = luaHost;
+  lua = crossOnly prev.lua5_3 (_: luaHost);
   luad =
     let s = final.fetchFromGitea {
           domain = "gti.telent.net";
