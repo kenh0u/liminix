@@ -1,11 +1,12 @@
 (local json (require :json))
 (local http (require :fetch))
 (local svc (require :anoia.svc))
-(local { : utime } (require :lualinux))
+(local { : setenv : utime } (require :lualinux))
 
 (fn download [url dest]
   (let [state (.. dest "/state")
         previously (ll.lstat state 12)]
+    (setenv "HTTP_ACCEPT" "application/json")
     (match (http.fetch url "i" previously)
       (nil 10 _) ; not modified
       (print (.. url " not modified, already up to date"))
