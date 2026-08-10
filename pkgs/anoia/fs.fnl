@@ -18,7 +18,9 @@
 
 (fn ifmt-bits [mode] (and mode (band mode 0xf000)))
 
-(fn file-type [pathname]
+;; returns nil if the pathname doesn't exist
+(fn file-type [pathname stat-flag]
+  "symbol describing the file type of pathname as detected by lstat(2). Pass non-nil second arg to use stat(2) instead"
   (. {
       S_IFDIR :directory
       S_IFSOCK :socket
@@ -28,7 +30,7 @@
       S_IFCHR :character-device
       S_IFIFO :fifo
       }
-     (ifmt-bits (ll.lstat3 pathname))))
+     (ifmt-bits (ll.lstat3 pathname (if stat-flag 1)))))
 
 (fn directory? [pathname]
   (= (file-type pathname) :directory))
@@ -37,10 +39,13 @@
   (if (or (= pathname "") (= pathname "/"))
       (error (.. "can't mkdir " pathname)))
 
-  (or (directory? pathname)
-      (let [parent (string.gsub pathname "/[^/]+/?$" "")]
-        (or (directory? parent) (mktree parent))
-        (errno-check (ll.mkdir pathname)))))
+  (case (file-type pathname :stat)
+    :directory true
+    ty (error (.. pathname " exists as " ty ", not a directory"))
+    nil
+    (let [parent (string.gsub pathname "/[^/]+/?$" "")]
+      (or (= (file-type parent :stat) :directory) (mktree parent))
+      (errno-check (ll.mkdir pathname)))))
 
 (fn dir [name]
   (let [dp (errno-check (ll.opendir name) name)]
@@ -81,6 +86,10 @@
 (define-tests
   (let [p (find-executable "yes" (os.getenv "PATH"))]
     (expect (string.match p "coreutils.+bin/yes$"))))
+
+(define-tests
+  (let [setup (os.execute "mkdir foo; ln -s foo bar")]
+    (mktree "bar")))
 
 {
  : mktree
