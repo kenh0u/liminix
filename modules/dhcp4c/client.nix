@@ -24,9 +24,12 @@ let
     set_address() {
         ip address replace $ip/$mask dev $interface
         (in_outputs ${name}
+         touch .lock
+         test -f state && rm state
          for i in lease mask ip router siaddr dns serverid subnet opt53 interface ; do
             (printenv $i || true) > $i
          done
+         rm .lock
          touch state)
     }
     case $action in
