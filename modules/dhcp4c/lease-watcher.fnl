@@ -20,7 +20,6 @@
     (print :service s)
     (react s controlled)
     (each [e (s:events)]
-      (print :event e)
       (react s controlled))))
 
 { : run }
