@@ -36,7 +36,8 @@
 
 (fn start-service [name]
   (with-popen [h (.. "s6-rc -b -u change " name)]
-    (print (h:read "*a"))))
+    (each [s (h:lines)]
+      (print "s6-rc " name ": " s))))
 
 (fn keys [t]
   (icollect [_ v (pairs t)] v))
