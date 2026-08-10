@@ -78,7 +78,9 @@ longrun {
     set -e
     echo dhcp lease acquired $(output ${service} ip)
     (in_outputs ${controlled-name}
+     touch .lock
      cp $(output_path ${service})/* .
+     rm .lock
      )
     while sleep 86400 ; do true ; done
   '';
