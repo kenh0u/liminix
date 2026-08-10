@@ -1,13 +1,3 @@
-## DHCP6 client module
-## ===================
-##
-##  This is for use if you have an IPv6-capable upstream that provides
-##  address information and/or prefix delegation using DHCP6. It
-##  provides a service to request address information in the form of a
-##  DHCP lease, and two dependent services that listen for updates
-##  to the DHCP address information and can be used to update
-##  addresses of network interfaces that you want to assign those
-##  prefixes to
 
 {
   lib,
