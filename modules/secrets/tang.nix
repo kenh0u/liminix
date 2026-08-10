@@ -25,7 +25,7 @@ longrun {
       while : ; do
         ${tangc}/bin/tangc decrypt < ${path} > $statedir/.input.json
         mv $statedir/.input.json $statedir/input.json
-        ${json-to-fstree}/bin/json-to-fstree file://$statedir/input.json .
+        ${json-to-fstree}/bin/json-to-fstree file://$statedir/input.json  ${placeholder "out"}
         echo ready >&10
         sleep ${builtins.toString (interval * 60)}
       done

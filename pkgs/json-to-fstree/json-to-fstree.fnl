@@ -4,7 +4,7 @@
 (local { : setenv : utime } (require :lualinux))
 
 (fn download [url dest]
-  (let [state (.. dest "/state")
+  (let [state (.. dest "/.outputs/state")
         previously (ll.lstat state 12)]
     (setenv "HTTP_ACCEPT" "application/json")
     (match (http.fetch url "i" previously)
@@ -16,7 +16,7 @@
 
       (body { : last-modified })
       (let [service (svc.open dest)
-            lock (.. dest "/.lock")]
+            lock (.. dest "/.outputs/.lock")]
         (with-open [fout (io.open lock :w)] (fout:write ""))
         (service:output "." (json.decode body))
         (with-open [fout (io.open state :w)] (fout:write "ok"))

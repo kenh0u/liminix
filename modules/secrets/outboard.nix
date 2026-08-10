@@ -35,7 +35,7 @@ longrun {
     ''}
     ( in_outputs ${name}
       while : ; do
-        ${json-to-fstree}/bin/json-to-fstree ${url} .
+        ${json-to-fstree}/bin/json-to-fstree ${url} ${placeholder "out"}
         sleep ${builtins.toString (interval * 60)}
       done
     )
