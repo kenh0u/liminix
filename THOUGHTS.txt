@@ -8758,5 +8758,169 @@ Need
 
 - a source of secrets accessible through bordervm, preferably at the
 same url as it would be in "prod"
- 
+
 - for outsdie,          x
+
+Tue Jul 28 13:11:59 BST 2026
+
+I have very little recollection of any of this. Apparently I wrote
+something called slops, and I am guessing from context that it serves
+http requests for secrets but only to clients that present particular
+client certs.
+
+* certifix-client module will create a client cert by talking to
+certifix (corollary: it needs to be able to see certifix, which
+therefore ideally should be accessible through bordervm and also
+directly (and should not be down when the internet is broken?))
+
+* secrets.outboard uses json-to-fstree to populate outputs based on
+the result of http-ing a json file. currently it uses basic auth
+
+maybe https+basic auth is sufficient?
+
+in other news, once again our dropbear patches no longer apply
+
+Thu Jul 30 21:12:55 BST 2026
+
+let's use certifix-client to make a client cert, and a vhost on
+localhost with mTLS that hosts a json file
+
+ * need to check that libfetch can present a client cert
+
+ * it would be cool if the file was encrypted at rest, but maybe this is a
+  solved problem if we use fscrypt or something
+
+ * let's face it, slops basically did this, leveraging sops/age for the
+  decryption
+
+so what we need is
+
+X a new name for slops [undercroft]
+X a derivation that builds it
+X a module that runs it
+  - needs to put sops on $PATH
+X install the module on a vhost on loaclhost
+  - undercroft terminates tls, so unless we're going to
+    make nginx do tcp proxying, perhaps let's just put it on another port
+* check that libfetch can present a client cert
+* a secrets file
+   - wifi password
+   - rsync password for backblaze
+   - pppoe/l2tp
+   - ssh auth keys?
+   - root password?
+
+* a proxy of some kind on bordervm so that hosts on the bordervm lan
+  can get certs and secrets
+   - bordervm needs to forward 19614 to loaclhost
+   - and add entry for undercroft.lan in /etc/hosts
+* certifix-client
+
+Fri Jul 31 21:12:23 BST 2026
+
+Apparently I am blocked on trying to figure out a hierarchy for
+the secrets yaml. Might just go with "service" names as top-level
+keys
+
+wifi:
+  psk: 75a7a8b786c876c98
+backblaze:
+  password: abc123
+aaisp:
+  pppoe:
+    username: aa123
+    password: Weird Caps Thing
+
+It may be an idea to teach undercroft to turn the yaml into json, esp. if
+we want to use yaml features like comments, anchors etc
+
+* we can put age pubkeys into the yaml file
+* undercroft's private key should live with undercroft
+* we would like to version-control the yaml, and not put the
+  private key in the same place
+
+could/should we use idiomatic systemd unit folders for storing this?
+
+/var/lib/undercroft/age.key
+/var/lib/undercroft/secrets/secrets.yaml
+/var/lib/undercroft/secrets/.git
+
+undercroft also needs to have a cert. in theory we could make it
+get one from certifix but maybe we'll just do that by hand
+
+/var/lib/undercroft/server.key
+/var/lib/undercroft/server.crt
+
+Sun Aug  2 09:33:27 BST 2026
+
+if loaclhost is offline and rotuer is trying to get secrets,
+this will break. before we can make rotuer use secrets, we
+need to move them from loaclhost to something that will be
+available at least as must as rotuer is
+
+in theory this is arthur, although I note that it's still using dhcp
+
+note that we need network access for loaclhost to be able to rebuild
+an image for rotuer, so maybe we just accept that it has to be
+loaclhost and we'll need to bring it into the house if the cable is
+severed. we already gave it static ip addresses
+
+[nix-shell:/var/lib/undercroft]# SOPS_AGE_KEY_FILE=sops.age  sops decrypt secrets/secrets.enc.yaml
+
+  mkdir tls
+  openssl req -newkey rsa:2048  -addext "subjectAltName = DNS:undercroft.lan,DNS:undercroft,DNS:undercroft.telent.net" -nodes -keyout tls/server.key --out tls/server.csr
+  openssl x509 -req -in tls/server.csr -days 365 -CA ../certifix/certs/ca.crt -CAkey ../certifix/private/ca.key -CAcreateserial -copy_extensions copyall -out tls/server.crt
+
+Tue Aug  4 14:33:30 BST 2026
+
+@400000000000003f3102e06b outsdie int.link.dhcpc-watcher s6-rc-up-tree  int.link.dhcpc-lease-acquired     blocks (                )       start ( resolvconf, certifix-C=GB-ST=London-O=Telent-OU=devices-CN=outsdie, route-37a8eec1ce19-7a1b596e5bea, int.link.dhcpc-lease-acquired, ntp, log-shipper-live, log-shipper-backfill-source, log-shipper-backfill-sink   )
+@400000000000003f393d1c05 outsdie int.link.dhcpc-lease-acquired dhcp lease acquired 192.168.8.47
+@400000000000004000abb334 outsdie int.link.dhcpc-watcher cat: can't open '/nix/store/z10dib5kld10c1sl4hqxyswazwln3df6-int.link.dhcpc-lease-acquired/.outputs/dns': No such file or directory                                                    @400000000000004023f24c50 outsdie ntp 1970-01-01T00:00:54Z chronyd version 4.8 starting (+CMDMON +REFCLOCK +RTC -PRIVDROP -SCFILTER -SIGND -NTS -SECHASH +IPV6 -DEBUG)
+@40000000000000402bda2bda outsdie ntp 506 Cannot talk to daemon
+@40000000000000402c0753a9 outsdie ntp 1970-01-01T00:00:54Z Running with root privileges
+
+
+
+@400000000000005e16aad2c7 outsdie int.link.dhcpc-watcher s6-svlisten: fatal: timed out
+@400000000000005e170835bf outsdie int.link.dhcpc-watcher s6-rc: warning: unable to start service ntp: command exited 99
+@400000000000005e1758e25b outsdie int.link.dhcpc-watcher
+@400000000000005e175963d4 outsdie int.link.dhcpc-watcher ERROR  s6-rc -b -u change certifix-C=GB-ST=London-O=Telent-OU=devices-CN=outsdie exited 1
+@400000000000005e17b1aaf0 outsdie int.link.dhcpc-watcher /nix/store/y444jvx67dzwrfsljzryz7rlaqmjl2xy-lua-tty-mips-unknown-linux-musl/bin/lua: ...mips-unknown-linux-musl-0.1/share/lua/5.3/anoia/init.lua:105: Error executing "s6-rc-up-tree "int.link.dhcpc-lease-acquired""
+
+looks like up-tree of dhcpc-watcher times out waiting for somthing
+(what?) to start and then takes everything down, but isnt killing ntpd
+properly
+
+Tue Aug  4 21:05:53 BST 2026
+
+would be good to have a way to add entries to /etc/hosts
+
+Wed Aug  5 23:39:03 BST 2026
+
+# find /run/services/outputs/secret-service/
+/run/services/outputs/secret-service/
+/run/services/outputs/secret-service/state
+/run/services/outputs/secret-service/.outputs
+/run/services/outputs/secret-service/.outputs/aaisp
+/run/services/outputs/secret-service/.outputs/aaisp/pppoe
+/run/services/outputs/secret-service/.outputs/aaisp/pppoe/username
+/run/services/outputs/secret-service/.outputs/aaisp/pppoe/password
+/run/services/outputs/secret-service/.outputs/wifi
+/run/services/outputs/secret-service/.outputs/wifi/psk
+
+json-to-fstree calls svc:open which expects the service store
+directory and appends .outputs, but instead we are calling it while
+cwd = the actual outputs folder
+
+this is broken the same way in outboard and in tang
+
+the "run" script created by s6 script builder.sh does not interpolate
+$out when it is written nor does it have it available when it runs.
+
+nor does (placeholder "out") show the right value:
+trace: helo /1rz4g4znpzjwh1xymhjpm42vipw92pr73vdgl6xs1hycac8kf2n9
+but even if I prefix /nix/store that doesn't map to an
+existent store directory
+
+the cheap fix would be for svc.open to only prepend .outputs if that
+directory exists, though that is going to break the .properties stuff
