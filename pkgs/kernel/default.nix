@@ -110,7 +110,6 @@ stdenv.mkDerivation rec {
     echo Checking required config items:
     if comm -2 -3 <(grep 'CONFIG' ${kconfigFile} |sort) <(grep 'CONFIG' .config|sort) |grep '.'    ; then
       echo -e "^^^ Some configuration lost :-(\nPerhaps you have mutually incompatible settings, or have disabled options on which these depend.\n"
-      exit 0
     fi
     echo "OK"
   '';

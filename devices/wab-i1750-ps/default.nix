@@ -86,9 +86,10 @@
       openwrt = pkgs.openwrt_25_12;
       firmwareBlobs = pkgs.pkgsBuildBuild.fetchgit {
         url = "https://git.codelinaro.org/clo/ath-firmware/ath10k-firmware";
-        # Same rev pin as gl-ar750 — CodeLinaro bundles QCA988X/hw2.4 alongside
-        # QCA9887/hw1.0 in this commit; if that turns out to be false we
-        # revise the rev or fall back to a different path.
+        # Same rev pin as gl-ar750 — CodeLinaro bundles QCA988X/hw2.0 (the
+        # chip family used by WAB's QCA9880) alongside QCA9887/hw1.0 in this
+        # commit; if that turns out to be false we revise the rev or fall
+        # back to a different path.
         rev = "e1d4991c717ecb252aeabd5f1a3c97551a1906f2";
         hash = "sha256-skH12f4ZQouBU6Gb8dgWJYT3kkDFNEq7lg/0RDGJ8LY=";
       };
@@ -96,12 +97,15 @@
         name = "wlan-firmware";
         phases = [ "installPhase" ];
         installPhase = ''
-          mkdir -p $out/ath10k/QCA988X/hw2.4/
-          blobdir=${firmwareBlobs}/QCA988X/hw2.4
+          # QCA9880 chip (WAB's 5G radio) is QCA988X family, hw revision 2.0.
+          # The runtime path the kernel looks up is /lib/firmware/ath10k/QCA988X/hw2.0/
+          # (same convention as OpenWrt's ath10k-firmware-qca988x package).
+          mkdir -p $out/ath10k/QCA988X/hw2.0/
+          blobdir=${firmwareBlobs}/QCA988X/hw2.0
           cp $blobdir/10.2.4-1.0/firmware-5.bin_10.2.4-1.0-00047 \
-             $out/ath10k/QCA988X/hw2.4/firmware-5.bin
+             $out/ath10k/QCA988X/hw2.0/firmware-5.bin
           cp $blobdir/board.bin \
-             $out/ath10k/QCA988X/hw2.4/
+             $out/ath10k/QCA988X/hw2.0/
         '';
       };
       mac80211 = pkgs.kmodloader.override {
@@ -242,6 +246,7 @@
         '';
 
         config = {
+          # Base (mirrors devices/gl-ar750/default.nix)
           ATH79 = "y";
           PCI = "y";
           PCI_AR724X = "y";
@@ -252,10 +257,16 @@
           SERIAL_CORE_CONSOLE = "y";
           SERIAL_OF_PLATFORM = "y"; # opens /dev/console at boot
 
-          # Second UART for ttyATH1 (SERIAL, RS-232C)
+          # Second UART for ttyATH1 (SERIAL, RS-232C). The ar933x UART in
+          # the QCA9558 is qca,ar9330-uart compatible, exposed at
+          # 0x18500000 (see WAB DTS uart1 node). Linux 6.12 needs the
+          # SERIAL_AR933X driver; OpenWrt patches make the IP block
+          # actually present on this SoC.
           SERIAL_AR933X = "y";
           SERIAL_AR933X_CONSOLE = "y";
-          NR_UARTS = "2";
+          # Correct symbol name (NOT NR_UARTS, which is the 8250 driver
+          # generic and was being silently dropped by olddefconfig).
+          SERIAL_AR933X_NR_UARTS = "2";
 
           CONSOLE_LOGLEVEL_DEFAULT = "8";
           CONSOLE_LOGLEVEL_QUIET = "4";
@@ -291,31 +302,39 @@
           # The SoC's own wdt is disabled in DTS (&wdt status="disabled").
           # We must feed the GPIO wdt — without this the board will reset
           # every ~300 ms once Linux takes over the pin.
+          #
+          # WATCHDOG (the menuconfig) must be set explicitly — the
+          # sub-options WATCHDOG_CORE and GPIO_WATCHDOG live in an
+          # `if WATCHDOG` block, so they're silently dropped without it.
+          WATCHDOG = "y";
           WATCHDOG_CORE = "y";
           GPIO_WATCHDOG = "y";
           # ATH79_WDT intentionally not set — DTS disables it.
 
-          # USB 2.0 Type-A (vbus on GPIO11, regulator-fixed)
+          # USB 2.0 Type-A (vbus on GPIO11, regulator-fixed). OpenWrt's
+          # ath79 defconfig leaves this to userspace (kmod-usb2); we
+          # build it in to keep the kernel self-contained.
+          # NOTE: Correct symbol names use _HCD_PLATFORM (NOT _PLATFORM).
           USB_SUPPORT = "y";
           USB = "y";
           USB_COMMON = "y";
           USB_EHCI_HCD = "y";
-          USB_EHCI_PLATFORM = "y";
+          USB_EHCI_HCD_PLATFORM = "y";
           USB_OHCI_HCD = "y";
-          USB_OHCI_PLATFORM = "y";
+          USB_OHCI_HCD_PLATFORM = "y";
           USB_PHY = "y";
           NOP_USB_XCEIV = "y";
           USB_ULPI = "y";
-          USB_LED_TRIG = "y";
+          # USB_LED_TRIG depends on LEDS_TRIGGERS; auto-set when that's y.
 
-          # LEDs (status / USB / WLAN), buttons (WPS / reset / eject), buzzer
-          LEDS_CLASS = "y";
-          LEDS_GPIO = "y";
+          # LEDs (status / USB / WLAN), buttons (WPS / reset / eject), buzzer.
+          # LEDS_TRIGGERS is a menuconfig that must be set for the
+          # sub-options to take effect. The actual `phy1tpt` and `usbport`
+          # triggers are auto-registered by the phy/usb subsystems when
+          # LEDS_TRIGGERS=y (no separate CONFIG symbol).
           LEDS_TRIGGERS = "y";
           LEDS_TRIGGER_TIMER = "y";
           LEDS_TRIGGER_HEARTBEAT = "y";
-          LEDS_TRIGGER_PHY = "y";
-          LEDS_TRIGGER_USBPORT = "y";
           INPUT = "y";
           INPUT_EVDEV = "y";
           KEYBOARD_GPIO = "y";
