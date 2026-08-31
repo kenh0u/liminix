@@ -1,5 +1,31 @@
 # Liminix
 
+> [!NOTE]
+> **This is a personal fork** of [Liminix](https://github.com/telent/liminix)
+> by [@kenh0u](https://github.com/kenh0u), created to port Liminix to the
+> **ELECOM WAB-I1750-PS** access point (QCA9558 / ath79). It is not
+> affiliated with upstream Liminix, and **no pull requests will be submitted
+> upstream** from this fork.
+>
+> **LLM disclosure:** development on this fork (device support, tooling and
+> documentation for the WAB-I1750-PS port) is assisted by LLM coding agents.
+> This is one reason it will not be proposed upstream, whose policy declines
+> LLM-assisted contributions.
+>
+> **Licensing:** unchanged from upstream. Original Liminix code is MIT
+> (© Daniel Barlow and contributors); OpenWrt-derived DTS and kernel patches
+> retain their upstream SPDX headers and licenses (GPL-2.0-or-later OR MIT
+> for DTS, GPL-2.0 for patches). See `LICENSE`.
+>
+> **Branches:** `main` tracks upstream `main` (kept pristine, fast-forward
+> only). All development happens on `wab-i1750-ps`, which is the default
+> branch of this fork.
+>
+> 本リポジトリは ELECOM WAB-I1750-PS (QCA9558) への Liminix 移植を目的とした
+> 個人 fork です。上流への PR は行いません。本 fork の WAB-I1750-PS 対応は
+> LLM 支援開発を含みます。ライセンスは上流のまま（MIT + OpenWrt 由来部分は
+> それぞれのライセンス）。
+
 A Nix-based system for configuring consumer wifi routers or IoT device
 devices, of the kind that OpenWrt or DD-WRT or Gargoyle or Tomato run
 on. It's a reboot/restart/rewrite of NixWRT.
